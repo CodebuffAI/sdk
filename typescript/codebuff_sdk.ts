@@ -48,9 +48,9 @@ async function executeCodebuff(
 
     return new Promise((resolve, reject) => {
       const child = spawn(
-        options._testCommand ? 'sh' : 'codebuff',
-        options._testCommand 
-          ? ['-c', options._testCommand]
+        options._testCommand ? "sh" : "codebuff",
+        options._testCommand
+          ? ["-c", options._testCommand]
           : [
               options.cwd,
               prompt ??
@@ -69,83 +69,86 @@ async function executeCodebuff(
             LINES: "24", // Set fixed terminal height
           },
         }
-      );            let foundPrompt = false;
-            let startIndex = 0;
-            let lines: string[] = [];
+      );
+      let foundPrompt = false;
+      let startIndex = 0;
+      let lines: string[] = [];
 
-            const processOutput = (data: Buffer | string, isStderr = false) => {
-                const decoded = data.toString();
-                output += decoded;
-                
-                if (options.debug) {
-                    if (isStderr) {
-                        process.stderr.write(decoded);
-                    } else {
-                        process.stdout.write(decoded);
-                    }
-                }
+      const processOutput = (data: Buffer | string, isStderr = false) => {
+        const decoded = data.toString();
+        output += decoded;
 
-                // Process lines to find prompts and extract content
-                lines = output.split('\n').filter(line => line.trim());
-                
-                for (let i = 0; i < lines.length; i++) {
-                    const cleanedLine = lines[i].replace(/[\x00-\x1F\x7F-\x9F]/g, '').trim();
-                    
-                    if (cleanedLine.includes('>')) {
-                        if (!foundPrompt) {
-                            foundPrompt = true;
-                            startIndex = i + 1;
-                            if (options.debug) {
-                                console.log(`Found first prompt at line ${i}: ${cleanedLine}`);
-                            }
-                        } else {
-                            if (options.debug) {
-                                console.log(`Found second prompt at line ${i}: ${cleanedLine}`);
-                            }
-                            // Return content between prompts, excluding prompt lines
-                            const outputLines = lines
-                                .slice(startIndex, i)
-                                .filter(line => !line.trim().endsWith('Thinking...'));
-                            if (outputLines.length > 0) {
-                                const result = outputLines.join('\n').trim();
-                                child.kill();
-                                resolve({
-                                    success: true,
-                                    output: result
-                                });
-                                return;
-                            }
-                        }
-                    }
-                }
-            };
+        if (options.debug) {
+          if (isStderr) {
+            process.stderr.write(decoded);
+          } else {
+            process.stdout.write(decoded);
+          }
+        }
 
-            child.stdout.on("data", data => processOutput(data));
-            child.stderr.on("data", data => processOutput(data, true));
+        // Process lines to find prompts and extract content
+        lines = output.split("\n").filter((line) => line.trim());
 
-            child.on("close", (code) => {
-                // Only reach here if we didn't find two prompts
+        for (let i = 0; i < lines.length; i++) {
+          const cleanedLine = lines[i]
+            .replace(/[\x00-\x1F\x7F-\x9F]/g, "")
+            .trim();
+
+          if (cleanedLine.includes(">")) {
+            if (!foundPrompt) {
+              foundPrompt = true;
+              startIndex = i + 1;
+            } else {
+              // Return content between prompts, excluding prompt lines
+              const outputLines = lines
+                .slice(startIndex, i)
+                .filter((line) => !line.trim().includes("Thinking..."));
+              if (outputLines.length > 0) {
+                const result = outputLines.join("\n").trim();
+                child.kill();
                 resolve({
-                    success: false,
-                    output: "",
-                    error: {
-                        message: "Process completed without finding complete output between prompts",
-                        code: code ?? "NO_OUTPUT"
-                    }
+                  success: true,
+                  output: result,
                 });
-            });
+                return;
+              }
+            }
+          }
+        }
+      };
 
-      child.on("error", (err) => {
+      child.stdout.on("data", (data) => processOutput(data));
+      child.stderr.on("data", (data) => processOutput(data, true));
+
+      child.on("close", (code) => {
+        // Only reach here if we didn't find two prompts
         resolve({
           success: false,
           output: "",
           error: {
-            message: err.message,
-            code: typeof (err as NodeJS.ErrnoException).code === 'string' 
-              ? (err as NodeJS.ErrnoException).code 
-              : 'UNKNOWN_ERROR',
-            details: err
-          }
+            message:
+              "Process completed without finding complete output between prompts",
+            code: code ?? "NO_OUTPUT",
+          },
+        });
+      });
+
+      child.on("error", (err) => {
+        const isCommandNotFound =
+          (err as NodeJS.ErrnoException).code === "ENOENT";
+        resolve({
+          success: false,
+          output: "",
+          error: {
+            message: isCommandNotFound
+              ? "Could not find the 'codebuff' command. Please ensure Codebuff CLI is installed and in your system PATH."
+              : err.message,
+            code:
+              typeof (err as NodeJS.ErrnoException).code === "string"
+                ? (err as NodeJS.ErrnoException).code
+                : "UNKNOWN_ERROR",
+            details: err,
+          },
         });
       });
 
@@ -158,8 +161,8 @@ async function executeCodebuff(
             output: output.trim(),
             error: {
               message: `Timeout after ${options.timeout}ms`,
-              code: "TIMEOUT"
-            }
+              code: "TIMEOUT",
+            },
           });
         }, options.timeout);
       }
@@ -174,8 +177,8 @@ async function executeCodebuff(
       error: {
         message: err instanceof Error ? err.message : "Unknown error occurred",
         code: "EXECUTION_ERROR",
-        details: err
-      }
+        details: err,
+      },
     };
   }
 }

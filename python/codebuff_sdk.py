@@ -139,17 +139,13 @@ async def execute_codebuff(instructions: str, options: CodebuffOptions, prompt: 
                         # First prompt - mark this as our starting point
                         found_prompt = True
                         start_index = i + 1
-                        if debug:
-                            print(f"Found first prompt at line {i}: {cleaned_line}")
                     else:
                         # Second prompt - we've found our complete output
-                        if debug:
-                            print(f"Found second prompt at line {i}: {cleaned_line}")
                         # Return everything between the first and second prompts
                         # But exclude the lines containing the prompts themselves
                         output_lines = [
                             line for line in lines[start_index:i]
-                            if not line.strip().endswith('Thinking...')
+                            if 'Thinking...' not in line.strip()
                         ]
                         if output_lines:
                             return {
